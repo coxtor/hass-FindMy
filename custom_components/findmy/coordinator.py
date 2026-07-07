@@ -13,6 +13,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from findmy import FindMyAccessory, KeyPair, LocationReport, UnauthorizedError
 
 from ._entity import (
+    SMOOTH_MAX_AGE_HOURS_DEFAULT,
     SMOOTH_RADIUS_M_DEFAULT,
     SMOOTH_WINDOW_DEFAULT,
     smoothed_position,
@@ -154,6 +155,7 @@ class FindMyCoordinator(DataUpdateCoordinator[FindMyLocationData]):
         *,
         window: int = SMOOTH_WINDOW_DEFAULT,
         radius_m: float = SMOOTH_RADIUS_M_DEFAULT,
+        max_age_hours: float = SMOOTH_MAX_AGE_HOURS_DEFAULT,
     ) -> tuple[float, float] | None:
         """Trimmed-centroid position for the given device based on its history
         buffer. Returns None when nothing has ever been polled for the device."""
@@ -161,4 +163,5 @@ class FindMyCoordinator(DataUpdateCoordinator[FindMyLocationData]):
             list(self._history.get(device, ())),
             window=window,
             radius_m=radius_m,
+            max_age_hours=max_age_hours,
         )

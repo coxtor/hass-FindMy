@@ -10,6 +10,7 @@ updates.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from math import asin, cos, radians, sin, sqrt
 from typing import TYPE_CHECKING
 
@@ -136,6 +137,7 @@ def status_counter(status: int | None) -> int | None:
 
 SMOOTH_WINDOW_DEFAULT = 20
 SMOOTH_RADIUS_M_DEFAULT = 200.0
+SMOOTH_MAX_AGE_HOURS_DEFAULT = 6.0
 SMOOTH_MIN_SAMPLES = 3
 
 _EARTH_RADIUS_M = 6_371_000.0
@@ -163,15 +165,35 @@ def smoothed_position(
     reports: Sequence[LocationReport],
     window: int = SMOOTH_WINDOW_DEFAULT,
     radius_m: float = SMOOTH_RADIUS_M_DEFAULT,
+    max_age_hours: float = SMOOTH_MAX_AGE_HOURS_DEFAULT,
 ) -> tuple[float, float] | None:
-    """Return (lat, lon) trimmed-centroid of the last `window` reports,
-    dropping any farther than `radius_m` from the median centroid.
-    None if `reports` is empty."""
+    """Return (lat, lon) trimmed-centroid of the last `window` reports.
+
+    Filters applied in order:
+      1. Only reports newer than `max_age_hours` back are considered.  If the
+         tag moved and stopped, this stops the smoothed position from lagging
+         forever on the old location.
+      2. Take at most the last `window` of those.
+      3. Compute median centroid, drop reports farther than `radius_m`.
+      4. Mean of survivors. If fewer than SMOOTH_MIN_SAMPLES survive the
+         filter, fall back to the freshest raw report.
+    """
     if not reports:
         return None
-    window_reports = list(reports)[-window:]
-    if not window_reports:
-        return None
+
+    if max_age_hours > 0:
+        cutoff = datetime.now(UTC) - timedelta(hours=max_age_hours)
+        fresh = [r for r in reports if r.timestamp >= cutoff]
+    else:
+        fresh = list(reports)
+
+    if not fresh:
+        # every report is older than the cutoff; fall back to the freshest raw
+        # so the sensor stays populated rather than going None
+        r = reports[-1]
+        return (r.latitude, r.longitude)
+
+    window_reports = fresh[-window:]
 
     m_lat = _median([r.latitude for r in window_reports])
     m_lon = _median([r.longitude for r in window_reports])
@@ -182,7 +204,6 @@ def smoothed_position(
     ]
 
     if len(good) < SMOOTH_MIN_SAMPLES:
-        # not enough data through the filter; fall back to the freshest raw report
         r = window_reports[-1]
         return (r.latitude, r.longitude)
 
