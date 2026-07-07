@@ -11,7 +11,10 @@ OpenHaystack build with `MAX_KEYS=250`), where the upstream `static` device
 would only report location during ~0.4 % of the tag's runtime because it only
 knows one key.
 
-Upstream: [malmeloo/hass-FindMy](https://github.com/malmeloo/hass-FindMy) - report bugs there for the non-openhaystack code paths.
+Fork of [malmeloo/hass-FindMy](https://github.com/malmeloo/hass-FindMy). Bug
+reports and PRs for this fork go to
+[coxtor/hass-FindMy/issues](https://github.com/coxtor/hass-FindMy/issues);
+the upstream repo tracks the vanilla static + rolling device types only.
 
 ## Highlights
 

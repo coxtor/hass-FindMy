@@ -1,11 +1,12 @@
 {
   "domain": "findmy",
   "name": "FindMy",
-  "version": "v0.1.0-openhaystack",
+  "version": "0.2.0",
   "integration_type": "device",
   "iot_class": "cloud_polling",
   "config_flow": true,
-  "documentation": "https://github.com/malmeloo/hass-findmy",
-  "issue_tracker": "https://github.com/malmeloo/hass-findmy/issues",
+  "codeowners": ["@coxtor"],
+  "documentation": "https://github.com/coxtor/hass-FindMy",
+  "issue_tracker": "https://github.com/coxtor/hass-FindMy/issues",
   "requirements": ["FindMy==0.10.1"]
 }

@@ -1,5 +1,7 @@
 {
-  "name": "FindMy",
+  "name": "FindMy (with OpenHaystack rotating support)",
   "homeassistant": "2024.7.4",
-  "render_readme": true
+  "render_readme": true,
+  "zip_release": false,
+  "content_in_root": false
 }
