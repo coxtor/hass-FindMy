@@ -15,6 +15,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from findmy import FindMyAccessory, KeyPair
 
+from ._entity import battery_percent as _battery_percent
 from .config_flow import DeviceEntryData
 from .const import DOMAIN
 from .coordinator import FindMyCoordinator, FindMyDevice
@@ -136,6 +137,15 @@ class FindMyDeviceTracker(  # pyright: ignore [reportUninitializedInstanceVariab
         if self._last_location is None:
             return None
         return self._last_location.status
+
+    @property
+    def battery_level(self) -> int | None:  # pyright: ignore[reportIncompatibleVariableOverride]
+        """Rough battery % decoded from the status byte (0/50/70/90).
+
+        This drives the battery icon on the HA map card. For automations use
+        the dedicated `binary_sensor.<tag>_battery_low` or the sensor
+        entities exposed by the sensor platform."""
+        return _battery_percent(self.status)
 
     @property
     def mac_address(self) -> str | None:
