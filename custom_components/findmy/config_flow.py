@@ -102,6 +102,12 @@ DATA_SCHEME_DEV_OPENHAYSTACK = vol.Schema(
     },
 )
 
+DATA_SCHEME_ACC_IMPORT = vol.Schema(
+    {
+        vol.Required("file"): FileSelector(FileSelectorConfig(accept=".json")),
+    },
+)
+
 
 class LoginFlowAdvancedOptions(TypedDict):
     anisette_url: str | None
@@ -135,6 +141,10 @@ class RollingDeviceInput(TypedDict):
 
 class OpenHaystackDeviceInput(TypedDict):
     name: str
+    file: str
+
+
+class AccountImportInput(TypedDict):
     file: str
 
 
@@ -190,7 +200,8 @@ class InitialSetupConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_menu(
             step_id="user",
             menu_options={
-                "start_acc": "Apple Account",
+                "start_acc": "Apple Account (login)",
+                "start_acc_import": "Apple Account (import JSON)",
                 "start_dev": "FindMy Device",
             },
         )
@@ -368,6 +379,54 @@ class InitialSetupConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors={"base": "2fa_invalid"},
             )
 
+        return await self.async_step_acc_done()
+
+    ############################
+    ### Account Import Flow  ###
+    ############################
+
+    async def async_step_start_acc_import(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> config_entries.ConfigFlowResult:
+        _LOGGER.debug("%s Step: start_acc_import - %s", self.__class__.__name__, user_input)
+        return self.async_show_form(
+            step_id="acc_import",
+            data_schema=DATA_SCHEME_ACC_IMPORT,
+        )
+
+    async def async_step_acc_import(
+        self,
+        info: AccountImportInput | None = None,
+    ) -> config_entries.ConfigFlowResult:
+        _LOGGER.debug("%s Step: acc_import - %s", self.__class__.__name__, info)
+
+        if not info:
+            return self.async_show_form(
+                step_id="acc_import",
+                data_schema=DATA_SCHEME_ACC_IMPORT,
+                errors={"base": "invalid_dev"},
+            )
+
+        file_id = info.get("file", "")
+        account = await self.hass.async_add_executor_job(
+            _get_account_from_file, self.hass, file_id,
+        )
+        if account is None:
+            return self.async_show_form(
+                step_id="acc_import",
+                data_schema=DATA_SCHEME_ACC_IMPORT,
+                errors={"base": "invalid_acc_json"},
+            )
+
+        # Deduplicate by account email so re-importing the same session doesn't
+        # produce two config entries.
+        email = account.account_name  # pyright: ignore[reportUnknownMemberType]
+        if email:
+            _ = await self.async_set_unique_id(email.lower())
+            self._abort_if_unique_id_configured()
+
+        self._account = account
         return await self.async_step_acc_done()
 
     async def async_step_acc_done(
@@ -582,4 +641,40 @@ def _get_openhaystack_from_file(
             return OpenHaystackAccessory.from_openhaystack_file(str(f))
         except ValueError:
             _LOGGER.exception("Failed to parse OpenHaystack devices.json")
+            return None
+
+
+def _get_account_from_file(
+    hass: HomeAssistant,
+    file_id: str,
+) -> AsyncAppleAccount | None:
+    """Load a pre-authenticated AsyncAppleAccount from an exported state JSON.
+
+    The file is expected to be the `to_json()` output of an already-configured
+    findmy.py account (or a compatible export from Macless-Haystack). No login
+    or 2FA is performed; the tokens inside must still be valid.
+    """
+    import json  # local import to keep hass startup light
+
+    with process_uploaded_file(hass, file_id) as f:
+        try:
+            with open(f, encoding="utf-8") as fp:
+                data = json.load(fp)
+        except (OSError, ValueError):
+            _LOGGER.exception("Failed to read account JSON")
+            return None
+
+        # Accept either the raw account_state or a wrapper `{"account": {...}}`
+        # in case someone drops in an HA config-entry export.
+        if isinstance(data, dict) and "account" in data and "account_data" not in data:
+            data = data["account"]
+        if isinstance(data, dict) and "account_data" in data:
+            data = data["account_data"]
+
+        try:
+            # No anisette provider is attached during import; the account uses
+            # the default (integrated) provider unless the user reconfigures.
+            return AsyncAppleAccount.from_json(data)
+        except (ValueError, KeyError, TypeError):
+            _LOGGER.exception("Account JSON is not a valid findmy.py state export")
             return None

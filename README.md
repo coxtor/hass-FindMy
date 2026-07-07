@@ -75,13 +75,42 @@ entry.
 
 ### Apple Account
 
-1. `Settings → Devices & Services → Add Integration → FindMy → Apple Account`
+There are two ways to configure an Apple Account:
+
+**Option A: Fresh login** (`Apple Account (login)` in the setup menu)
+
+1. `Settings → Devices & Services → Add Integration → FindMy → Apple Account (login)`
 2. Enter e-mail + password
 3. Anisette URL (optional): leave blank to use the integrated provider. Only
    set it if you have a private Anisette server (e.g.
    [anisette-v3-server](https://github.com/Dadoum/anisette-v3-server)) which
    tends to be more reliable long-term than public ones.
 4. Complete 2FA if prompted.
+
+**Option B: Import existing session** (`Apple Account (import JSON)`)
+
+If you already have an authenticated findmy.py account elsewhere (a
+standalone script, Macless-Haystack, etc.), you can migrate the session into
+HASS without redoing 2FA.
+
+1. Export the account state as JSON from wherever it currently lives:
+   ```python
+   # in whatever Python context has the AsyncAppleAccount object
+   import json
+   with open("account.json", "w") as f:
+       json.dump(account.to_json(), f)
+   ```
+   For Macless-Haystack: the account state lives in the container's data
+   directory (usually `data/account.json` inside the MH container). Copy it
+   out with `docker cp macless-haystack:/app/data/account.json .`
+2. `Settings → Devices & Services → Add Integration → FindMy → Apple Account (import JSON)`
+3. Upload the JSON. The integration skips the login/2FA dance and stores the
+   pre-authenticated session directly.
+
+The importer accepts three JSON shapes for convenience:
+- Raw `to_json()` output (dict of tokens/state)
+- `{"account": {...}}` (matches some MH exports)
+- `{"account_data": {...}}` (matches an HA config-entry export)
 
 **Rate limiting**: each account is polled every 15 min by default. If you add
 multiple accounts, the coordinator round-robins between them, effectively

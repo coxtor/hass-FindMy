@@ -6,6 +6,13 @@
         "title": "Add entity",
         "description": "Select whether you want to add a new Apple Account or FindMy-enabled device."
       },
+      "acc_import": {
+        "title": "Import Apple Account state",
+        "description": "Upload a findmy.py account state JSON (or the `to_json()` output of an existing AsyncAppleAccount). No login/2FA is performed - the tokens inside must be valid.",
+        "data": {
+          "file": "Account state JSON"
+        }
+      },
       "acc_login": {
         "title": "Apple Account Login",
         "data": {
@@ -71,7 +78,8 @@
       "2fa_unavailable": "No available 2FA methods found. Please try another account",
       "2fa_invalid": "Error while validating 2FA code. Please try again",
       "invalid_dev": "Invalid device specified",
-      "invalid_dev_key": "Invalid key specified"
+      "invalid_dev_key": "Invalid key specified",
+      "invalid_acc_json": "The file is not a valid findmy.py account state export"
     },
     "abort": {
       "protocol_error": "A protocol exception occurred. Please report this error and try again later.",
