@@ -39,6 +39,7 @@ from findmy import (
 )
 
 from .const import DOMAIN
+from .openhaystack import OpenHaystackAccessory, OpenHaystackAccessoryMapping
 
 if TYPE_CHECKING:
     from typing import Any
@@ -73,7 +74,7 @@ DATA_SCHEME_DEV_CHOOSE = vol.Schema(
     {
         "device_type": SelectSelector(
             SelectSelectorConfig(
-                options=["static", "rolling"],
+                options=["static", "rolling", "openhaystack"],
                 translation_key="device_type",
             ),
         ),
@@ -91,6 +92,13 @@ DATA_SCHEME_DEV_ROLLING = vol.Schema(
     {
         vol.Optional("name"): str,
         vol.Required("file"): FileSelector(FileSelectorConfig(accept=".json,.plist")),
+    },
+)
+
+DATA_SCHEME_DEV_OPENHAYSTACK = vol.Schema(
+    {
+        vol.Optional("name"): str,
+        vol.Required("file"): FileSelector(FileSelectorConfig(accept=".json")),
     },
 )
 
@@ -112,7 +120,7 @@ class MfaSubmitInput(TypedDict):
 
 
 class DeviceTypeInput(TypedDict):
-    device_type: Literal["static", "rolling"]
+    device_type: Literal["static", "rolling", "openhaystack"]
 
 
 class StaticDeviceInput(TypedDict):
@@ -121,6 +129,11 @@ class StaticDeviceInput(TypedDict):
 
 
 class RollingDeviceInput(TypedDict):
+    name: str
+    file: str
+
+
+class OpenHaystackDeviceInput(TypedDict):
     name: str
     file: str
 
@@ -140,7 +153,14 @@ class EntryDataRollingDevice(TypedDict):
     data: FindMyAccessoryMapping
 
 
-type DeviceEntryData = EntryDataStaticDevice | EntryDataRollingDevice
+class EntryDataOpenHaystackDevice(TypedDict):
+    type: Literal["device_openhaystack"]
+    data: OpenHaystackAccessoryMapping
+
+
+type DeviceEntryData = (
+    EntryDataStaticDevice | EntryDataRollingDevice | EntryDataOpenHaystackDevice
+)
 type EntryData = EntryDataAccount | DeviceEntryData
 
 
@@ -402,6 +422,11 @@ class InitialSetupConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 step_id="dev_rolling",
                 data_schema=DATA_SCHEME_DEV_ROLLING,
             )
+        if dev_type == "openhaystack":
+            return self.async_show_form(
+                step_id="dev_openhaystack",
+                data_schema=DATA_SCHEME_DEV_OPENHAYSTACK,
+            )
 
         return self.async_show_form(
             step_id="dev_choose",
@@ -480,6 +505,55 @@ class InitialSetupConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data=data,
         )
 
+    async def async_step_dev_openhaystack(
+        self,
+        info: OpenHaystackDeviceInput | None = None,
+    ) -> config_entries.ConfigFlowResult:
+        _LOGGER.debug("%s Step: dev_openhaystack - %s", self.__class__.__name__, info)
+
+        if not info:
+            return self.async_show_form(
+                step_id="dev_openhaystack",
+                data_schema=DATA_SCHEME_DEV_OPENHAYSTACK,
+                errors={"base": "invalid_dev"},
+            )
+
+        name_override = info.get("name", None)
+        file_id = info.get("file", "")
+
+        devices = await self.hass.async_add_executor_job(
+            _get_openhaystack_from_file, self.hass, file_id,
+        )
+        if not devices:
+            return self.async_show_form(
+                step_id="dev_openhaystack",
+                data_schema=DATA_SCHEME_DEV_OPENHAYSTACK,
+                errors={"base": "invalid_dev_key"},
+            )
+
+        # If the file has multiple devices we import the first one and warn about the rest.
+        # Users can re-run the setup for each additional device.
+        if len(devices) > 1:
+            _LOGGER.warning(
+                "devices.json contained %d devices, only importing the first ('%s'). "
+                "Re-run the setup flow to add the others.",
+                len(devices), devices[0].name,
+            )
+
+        device = devices[0]
+        if name_override:
+            device.name = name_override
+
+        data = EntryDataOpenHaystackDevice(
+            type="device_openhaystack",
+            data=device.to_json(),
+        )
+
+        return self.async_create_entry(
+            title=f"Device (OpenHaystack, {len(device.keypairs)} keys): {device.name}",
+            data=data,
+        )
+
 
 def _get_device_from_file(hass: HomeAssistant, file_id: str) -> FindMyAccessory | None:
     """Load a FindMyAccessory from an uploaded file."""
@@ -496,3 +570,16 @@ def _get_device_from_file(hass: HomeAssistant, file_id: str) -> FindMyAccessory 
                 device = FindMyAccessory.from_json(f)
 
     return device
+
+
+def _get_openhaystack_from_file(
+    hass: HomeAssistant,
+    file_id: str,
+) -> list[OpenHaystackAccessory] | None:
+    """Load a list of OpenHaystackAccessory from an OpenHaystack devices.json file."""
+    with process_uploaded_file(hass, file_id) as f:
+        try:
+            return OpenHaystackAccessory.from_openhaystack_file(str(f))
+        except ValueError:
+            _LOGGER.exception("Failed to parse OpenHaystack devices.json")
+            return None

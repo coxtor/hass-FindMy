@@ -56,6 +56,14 @@
           "name": "Name",
           "file": "Device keys"
         }
+      },
+      "dev_openhaystack": {
+        "title": "Add an OpenHaystack rotating-key device",
+        "description": "Upload the devices.json exported by OpenHaystack / Macless-Haystack. The file's first device is imported with its full key set (privateKey + additionalKeys).",
+        "data": {
+          "name": "Name (optional override)",
+          "file": "OpenHaystack devices.json"
+        }
       }
     },
     "error": {
@@ -73,8 +81,9 @@
   "selector": {
     "device_type": {
       "options": {
-        "static": "Static-key tag (OpenHaystack)",
-        "rolling": "Rolling-key tag (AirTag)"
+        "static": "Static-key tag (single OpenHaystack key)",
+        "rolling": "Rolling-key tag (AirTag .plist)",
+        "openhaystack": "OpenHaystack rotating tag (devices.json)"
       }
     }
   }
