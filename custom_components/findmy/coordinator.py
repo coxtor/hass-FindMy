@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections import defaultdict, deque
 from datetime import timedelta
 from typing import TYPE_CHECKING, final, override
 
@@ -11,6 +12,11 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from findmy import FindMyAccessory, KeyPair, LocationReport, UnauthorizedError
 
+from ._entity import (
+    SMOOTH_RADIUS_M_DEFAULT,
+    SMOOTH_WINDOW_DEFAULT,
+    smoothed_position,
+)
 from .openhaystack import OpenHaystackAccessory
 
 if TYPE_CHECKING:
@@ -31,6 +37,9 @@ class FindMyCoordinator(DataUpdateCoordinator[FindMyLocationData]):
     # minimum time (in seconds) between location fetches on an account.
     _MIN_ACCOUNT_UPDATE_DELAY = 15 * 60
 
+    # keep enough history for the widest smoothing window a user might set
+    _HISTORY_MAXLEN = 100
+
     def __init__(self, hass: HomeAssistant, storage: RuntimeStorage) -> None:
         super().__init__(
             hass,
@@ -43,6 +52,14 @@ class FindMyCoordinator(DataUpdateCoordinator[FindMyLocationData]):
         self._storage = storage
 
         self._cur_acc_index = 0
+
+        # In-memory ring buffer of recent LocationReports per device.
+        # Feeds smoothed_position() for the optional smoothed sensor entities.
+        # Empty after HA restart; smoothed sensors fall back to raw until it
+        # refills.
+        self._history: dict[FindMyDevice, deque[LocationReport]] = defaultdict(
+            lambda: deque(maxlen=self._HISTORY_MAXLEN),
+        )
 
     def get_account(self) -> AsyncAppleAccount | None:
         accounts = self._storage.accounts
@@ -119,4 +136,29 @@ class FindMyCoordinator(DataUpdateCoordinator[FindMyLocationData]):
             if report:
                 data[device] = report
 
+        # Push freshly-updated reports into the history buffer used by the
+        # smoothed sensors.  We compare to the last entry's timestamp so a
+        # repeated poll returning the same report doesn't fake up history.
+        for device_key, latest in data.items():
+            if latest is None:
+                continue
+            hist = self._history[device_key]
+            if not hist or hist[-1].timestamp != latest.timestamp:
+                hist.append(latest)
+
         return data
+
+    def get_smoothed_position(
+        self,
+        device: FindMyDevice,
+        *,
+        window: int = SMOOTH_WINDOW_DEFAULT,
+        radius_m: float = SMOOTH_RADIUS_M_DEFAULT,
+    ) -> tuple[float, float] | None:
+        """Trimmed-centroid position for the given device based on its history
+        buffer. Returns None when nothing has ever been polled for the device."""
+        return smoothed_position(
+            list(self._history.get(device, ())),
+            window=window,
+            radius_m=radius_m,
+        )

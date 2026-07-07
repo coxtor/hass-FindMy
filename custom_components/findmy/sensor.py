@@ -58,6 +58,9 @@ async def async_setup_entry(
             FindMyLatitudeSensor(storage.coordinator, item, entry.entry_id),
             FindMyLongitudeSensor(storage.coordinator, item, entry.entry_id),
             FindMyPositionSensor(storage.coordinator, item, entry.entry_id),
+            FindMySmoothedLatitudeSensor(storage.coordinator, item, entry.entry_id),
+            FindMySmoothedLongitudeSensor(storage.coordinator, item, entry.entry_id),
+            FindMySmoothedPositionSensor(storage.coordinator, item, entry.entry_id),
             FindMyBatteryLevelSensor(storage.coordinator, item, entry.entry_id),
             FindMyBatteryPercentSensor(storage.coordinator, item, entry.entry_id),
             FindMyBatteryVoltageSensor(storage.coordinator, item, entry.entry_id),
@@ -168,6 +171,85 @@ class FindMyPositionSensor(_FindMyBaseSensor):
         if report is None:
             return None
         return f"{report.latitude:.6f},{report.longitude:.6f}"
+
+    @property
+    @override
+    def native_value(self) -> str | None:  # pyright: ignore[reportIncompatibleVariableOverride]
+        val = self._cached_value
+        if val is None:
+            val = self._compute_value()
+        return val  # type: ignore[return-value]
+
+
+@final
+class FindMySmoothedLatitudeSensor(_FindMyBaseSensor):
+    """Trimmed-centroid latitude over the last N reports.
+
+    Damps the "wandering" that stationary tags exhibit because every hearing
+    iPhone attributes its OWN GPS fix to the tag. See _entity.smoothed_position
+    for the algorithm and defaults.
+
+    Disabled by default; enable in the entity registry if you want it on the
+    map or in automations."""
+
+    _attr_name = "Latitude (smoothed)"
+    _attr_native_unit_of_measurement = "°"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_display_precision = 6
+    _attr_entity_registry_enabled_default = False
+    _suffix = "latitude_smoothed"
+
+    @override
+    def _compute_value(self) -> float | None:
+        pos = self._coordinator.get_smoothed_position(self._device)
+        return pos[0] if pos else None
+
+    @property
+    @override
+    def native_value(self) -> float | None:  # pyright: ignore[reportIncompatibleVariableOverride]
+        val = self._cached_value
+        if val is None:
+            val = self._compute_value()
+        return val  # type: ignore[return-value]
+
+
+@final
+class FindMySmoothedLongitudeSensor(_FindMyBaseSensor):
+    _attr_name = "Longitude (smoothed)"
+    _attr_native_unit_of_measurement = "°"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_display_precision = 6
+    _attr_entity_registry_enabled_default = False
+    _suffix = "longitude_smoothed"
+
+    @override
+    def _compute_value(self) -> float | None:
+        pos = self._coordinator.get_smoothed_position(self._device)
+        return pos[1] if pos else None
+
+    @property
+    @override
+    def native_value(self) -> float | None:  # pyright: ignore[reportIncompatibleVariableOverride]
+        val = self._cached_value
+        if val is None:
+            val = self._compute_value()
+        return val  # type: ignore[return-value]
+
+
+@final
+class FindMySmoothedPositionSensor(_FindMyBaseSensor):
+    """`lat,lon` string of the smoothed position - for notifications and links."""
+
+    _attr_name = "Position (smoothed)"
+    _attr_entity_registry_enabled_default = False
+    _suffix = "position_smoothed"
+
+    @override
+    def _compute_value(self) -> str | None:
+        pos = self._coordinator.get_smoothed_position(self._device)
+        if pos is None:
+            return None
+        return f"{pos[0]:.6f},{pos[1]:.6f}"
 
     @property
     @override
