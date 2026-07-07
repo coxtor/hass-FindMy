@@ -54,6 +54,7 @@ async def async_setup_entry(
         (
             FindMyLatitudeSensor(storage.coordinator, item, entry.entry_id),
             FindMyLongitudeSensor(storage.coordinator, item, entry.entry_id),
+            FindMyPositionSensor(storage.coordinator, item, entry.entry_id),
             FindMyBatteryLevelSensor(storage.coordinator, item, entry.entry_id),
             FindMyBatteryPercentSensor(storage.coordinator, item, entry.entry_id),
             FindMyBatteryVoltageSensor(storage.coordinator, item, entry.entry_id),
@@ -143,6 +144,31 @@ class FindMyLongitudeSensor(_FindMyBaseSensor):
     @property
     @override
     def native_value(self) -> float | None:  # pyright: ignore[reportIncompatibleVariableOverride]
+        val = self._cached_value
+        if val is None:
+            val = self._compute_value()
+        return val  # type: ignore[return-value]
+
+
+@final
+class FindMyPositionSensor(_FindMyBaseSensor):
+    """Convenience sensor combining lat + lon in a single 'lat,lon' string.
+    Not graphable, but handy for template concatenation, notifications and
+    passing to external map tools."""
+
+    _attr_name = "Position"
+    _suffix = "position"
+
+    @override
+    def _compute_value(self) -> str | None:
+        report = latest_report(self._coordinator, self._device)
+        if report is None:
+            return None
+        return f"{report.latitude:.6f},{report.longitude:.6f}"
+
+    @property
+    @override
+    def native_value(self) -> str | None:  # pyright: ignore[reportIncompatibleVariableOverride]
         val = self._cached_value
         if val is None:
             val = self._compute_value()
