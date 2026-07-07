@@ -664,12 +664,21 @@ def _get_account_from_file(
             _LOGGER.exception("Failed to read account JSON")
             return None
 
-        # Accept either the raw account_state or a wrapper `{"account": {...}}`
-        # in case someone drops in an HA config-entry export.
-        if isinstance(data, dict) and "account" in data and "account_data" not in data:
-            data = data["account"]
-        if isinstance(data, dict) and "account_data" in data:
+        # Optional wrappers to unwrap.  findmy.py state has multiple top-level
+        # keys (account, anisette, ids, login, type) so we must only unwrap
+        # when the "outer" dict is clearly a wrapper with a single key.
+        if isinstance(data, dict) and set(data.keys()) == {"account_data"}:
             data = data["account_data"]
+        elif (
+            isinstance(data, dict)
+            and set(data.keys()) == {"account"}
+            and isinstance(data["account"], dict)
+            and "type" not in data["account"]
+        ):
+            # `{"account": {...actual state...}}` wrapper - only if the inner
+            # dict doesn't itself look like a full findmy.py state (which
+            # would have "type": "account" at its root).
+            data = data["account"]
 
         try:
             # No anisette provider is attached during import; the account uses
