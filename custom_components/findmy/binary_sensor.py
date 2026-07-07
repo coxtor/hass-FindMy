@@ -1,3 +1,6 @@
+# Part of hass-FindMy (https://github.com/malmeloo/hass-FindMy), GPL-3.0.
+# Original integration (c) 2024-2026 malmeloo. This file added 2026 by
+# @coxtor.
 """FindMy binary_sensor platform: battery-low flag for automations."""
 
 from __future__ import annotations

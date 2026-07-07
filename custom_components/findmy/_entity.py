@@ -1,3 +1,6 @@
+# Part of hass-FindMy (https://github.com/malmeloo/hass-FindMy), GPL-3.0.
+# Original integration (c) 2024-2026 malmeloo. This file added 2026 by
+# @coxtor.
 """Shared helpers for FindMy entities (device_tracker + sensor + binary_sensor).
 
 Keeps device grouping / unique-ID logic in one place so all platforms

@@ -2,7 +2,13 @@
 
 ## v0.2.0 – 2026-07-07
 
-Feature-heavy release building on the upstream v0.0.1 base.
+Feature-heavy release built on top of upstream
+[malmeloo/hass-FindMy v0.0.1](https://github.com/malmeloo/hass-FindMy).
+Original integration, config-flow scaffolding and findmy.py library
+by [@malmeloo](https://github.com/malmeloo). All additions in this release
+by [@coxtor](https://github.com/coxtor) and are being proposed as upstream
+PRs alongside this fork release; once a feature merges upstream it will be
+dropped from this fork.
 
 ### Added
 

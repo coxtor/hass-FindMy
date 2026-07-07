@@ -1,5 +1,8 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false
-
+#
+# Part of hass-FindMy (https://github.com/malmeloo/hass-FindMy), GPL-3.0.
+# Original integration (c) 2024-2026 malmeloo. This file added 2026 by
+# @coxtor.
 """OpenHaystack rotating-key accessory - wraps N KeyPairs as a single trackable device."""
 
 from __future__ import annotations

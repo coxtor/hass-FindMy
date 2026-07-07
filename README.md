@@ -1,20 +1,33 @@
 # FindMy - Home Assistant integration
 
+> **This is a downstream fork of [malmeloo/hass-FindMy](https://github.com/malmeloo/hass-FindMy)**
+> maintained by [@coxtor](https://github.com/coxtor). All credit for the
+> original integration and the underlying [FindMy.py](https://github.com/malmeloo/FindMy.py)
+> library goes to [@malmeloo](https://github.com/malmeloo). Individual
+> features from this fork are being proposed as PRs against the upstream -
+> once they land there, they'll be dropped here in favour of the upstream
+> version. Bugs specific to this fork's additions go to
+> [coxtor/hass-FindMy/issues](https://github.com/coxtor/hass-FindMy/issues);
+> anything else belongs upstream.
+>
+> License: GPL-3.0 (unchanged from upstream).
+
 Home Assistant custom integration that provides `device_tracker` entities for
 FindMy-Network-enabled devices. Talks directly to Apple's Find My servers with
 your Apple ID credentials - no self-hosted backend required.
 
-**This fork adds a third device type: `openhaystack`**, which understands the
-`devices.json` format produced by OpenHaystack / Macless-Haystack. It's built
-for firmwares that rotate through a pre-generated set of keys (typical
-OpenHaystack build with `MAX_KEYS=250`), where the upstream `static` device
-would only report location during ~0.4 % of the tag's runtime because it only
-knows one key.
+**What this fork adds on top of upstream:**
 
-Fork of [malmeloo/hass-FindMy](https://github.com/malmeloo/hass-FindMy). Bug
-reports and PRs for this fork go to
-[coxtor/hass-FindMy/issues](https://github.com/coxtor/hass-FindMy/issues);
-the upstream repo tracks the vanilla static + rolling device types only.
+- `openhaystack` device type - understands the `devices.json` format used by
+  OpenHaystack / Macless-Haystack, aggregates N pre-generated rotating keys
+  into a single HA entity.
+- Apple Account import from an existing `to_json()` state (skip 2FA on
+  migration).
+- Bulk import of multi-device `devices.json`.
+- Sensor + binary_sensor platform: latitude / longitude / position sensors
+  for history graphs plus battery-status decoding from the Find My payload.
+- `findmy.delete_devices` service for bulk cleanup.
+- Two automation blueprints (zone enter/leave, stale report).
 
 ## Highlights
 
