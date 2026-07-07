@@ -590,18 +590,58 @@ class InitialSetupConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors={"base": "invalid_dev_key"},
             )
 
-        # If the file has multiple devices we import the first one and warn about the rest.
-        # Users can re-run the setup for each additional device.
-        if len(devices) > 1:
-            _LOGGER.warning(
-                "devices.json contained %d devices, only importing the first ('%s'). "
-                "Re-run the setup flow to add the others.",
-                len(devices), devices[0].name,
+        _LOGGER.info(
+            "Importing %d OpenHaystack device(s) from devices.json",
+            len(devices),
+        )
+
+        # For each device after the first: schedule a headless background flow
+        # that lands in async_step_openhaystack_bulk and creates its own entry.
+        for extra in devices[1:]:
+            self.hass.async_create_task(
+                self.hass.config_entries.flow.async_init(
+                    DOMAIN,
+                    context={"source": "openhaystack_bulk"},
+                    data=extra.to_json(),
+                ),
             )
 
+        # Handle the first device in the current interactive flow.
         device = devices[0]
         if name_override:
             device.name = name_override
+
+        data = EntryDataOpenHaystackDevice(
+            type="device_openhaystack",
+            data=device.to_json(),
+        )
+
+        return self.async_create_entry(
+            title=f"Device (OpenHaystack, {len(device.keypairs)} keys): {device.name}",
+            data=data,
+        )
+
+    async def async_step_openhaystack_bulk(
+        self,
+        info: OpenHaystackAccessoryMapping | None = None,
+    ) -> config_entries.ConfigFlowResult:
+        """Headless import path used when the primary openhaystack flow's
+        devices.json contained more than one entry.  Called with the mapping
+        of a single OpenHaystackAccessory as the flow's initial data.
+        """
+        _LOGGER.debug(
+            "%s Step: openhaystack_bulk - %s",
+            self.__class__.__name__,
+            info,
+        )
+        if not info:
+            return self.async_abort(reason="unknown_error")
+
+        try:
+            device = OpenHaystackAccessory.from_json(info)
+        except (ValueError, KeyError, TypeError):
+            _LOGGER.exception("Bulk import failed to parse device data")
+            return self.async_abort(reason="unknown_error")
 
         data = EntryDataOpenHaystackDevice(
             type="device_openhaystack",
