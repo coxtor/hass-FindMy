@@ -188,6 +188,185 @@ Other HolyIOT boards will have different pin assignments. The firmware repo
 ships pin-scanner diagnostic firmwares (`pinscan/`) that identify LED and
 button pins in ~60 s each.
 
+## Examples
+
+Copy-pasteable snippets for common scenarios. All examples assume a tag
+named `f2math`; adjust entity IDs to match yours.
+
+### Entities you get per tag
+
+After adding a tag, HA creates one **device** with these entities:
+
+| Entity | Type | Notes |
+|---|---|---|
+| `device_tracker.f2math` | tracker | Zone state + battery icon on map |
+| `sensor.f2math_latitude` | number (°) | Graphable |
+| `sensor.f2math_longitude` | number (°) | Graphable |
+| `sensor.f2math_position` | `"lat,lon"` string | For notifications / links |
+| `sensor.f2math_battery_level` | enum ok/medium/low/critical | |
+| `sensor.f2math_battery` | number (%) | Drives HA's map battery icon |
+| `sensor.f2math_battery_voltage` | number (mV) | Opt-in, rough estimate |
+| `sensor.f2math_status_counter` | number | Opt-in, diagnostic |
+| `binary_sensor.f2math_battery_low` | on/off | For automations |
+
+### Automation: notify when the tag leaves home
+
+```yaml
+alias: F2MATH left home
+trigger:
+  - platform: zone
+    entity_id: device_tracker.f2math
+    zone: zone.home
+    event: leave
+action:
+  - service: notify.mobile_app_myphone
+    data:
+      title: F2MATH left home
+      message: >-
+        Last seen at {{ state_attr('device_tracker.f2math', 'detected_at') }}
+      data:
+        url: >-
+          https://www.google.com/maps/search/?api=1&query={{ states('sensor.f2math_position') }}
+```
+
+Prefer the [`tag_zone_change` blueprint](blueprints/) if you don't want to
+maintain YAML by hand.
+
+### Automation: notify when battery goes low or critical
+
+```yaml
+alias: F2MATH battery low
+trigger:
+  - platform: state
+    entity_id: binary_sensor.f2math_battery_low
+    to: "on"
+action:
+  - service: notify.mobile_app_myphone
+    data:
+      title: F2MATH battery low
+      message: >-
+        Battery status: {{ states('sensor.f2math_battery_level') }}
+        ({{ states('sensor.f2math_battery') }} %). Time to swap the CR2032.
+```
+
+### Automation: warn if no report for 24h
+
+Use the [`tag_stale` blueprint](blueprints/), or roll your own:
+
+```yaml
+alias: F2MATH stale
+trigger:
+  - platform: time_pattern
+    minutes: /30
+condition:
+  - condition: template
+    value_template: >-
+      {% set d = state_attr('device_tracker.f2math', 'detected_at') %}
+      {{ d and (as_timestamp(now()) - as_timestamp(d)) > 24 * 3600 }}
+action:
+  - service: persistent_notification.create
+    data:
+      title: F2MATH stale
+      message: >-
+        No report for {{ ((as_timestamp(now()) -
+        as_timestamp(state_attr('device_tracker.f2math', 'detected_at'))) / 3600)
+        | round(1) }} h.
+```
+
+### Automation: geofence with distance calc
+
+```yaml
+alias: F2MATH within 500m of home
+trigger:
+  - platform: state
+    entity_id: sensor.f2math_latitude
+condition:
+  - condition: template
+    value_template: >-
+      {% set lat = states('sensor.f2math_latitude') | float(0) %}
+      {% set lon = states('sensor.f2math_longitude') | float(0) %}
+      {{ distance(lat, lon, 'zone.home') < 0.5 }}
+action:
+  - service: light.turn_on
+    target:
+      entity_id: light.living_room
+```
+
+Uses HA's built-in `distance()` template (returns km).
+
+### Notification with Google Maps link
+
+Anywhere in a notification message:
+
+```yaml
+data:
+  message: F2MATH is here.
+  data:
+    url: >-
+      https://www.google.com/maps/search/?api=1&query={{ states('sensor.f2math_position') }}
+```
+
+Tap the notification → Google Maps opens at the tag's last known location.
+
+### Lovelace: map with breadcrumb trail
+
+```yaml
+type: map
+entities:
+  - device_tracker.f2math
+hours_to_show: 168     # 1 week trail
+default_zoom: 14
+```
+
+### Lovelace: history graph of lat/lon
+
+```yaml
+type: history-graph
+entities:
+  - sensor.f2math_latitude
+  - sensor.f2math_longitude
+hours_to_show: 24
+```
+
+For fancier plots use the ApexCharts-Card from HACS with two Y-axes.
+
+### Lovelace: entity card with all the info
+
+```yaml
+type: entities
+title: F2MATH
+entities:
+  - device_tracker.f2math
+  - sensor.f2math_battery
+  - sensor.f2math_battery_level
+  - binary_sensor.f2math_battery_low
+  - type: attribute
+    entity: device_tracker.f2math
+    attribute: detected_at
+    name: Last seen
+  - sensor.f2math_position
+```
+
+### Multi-tag bulk delete via Developer Tools
+
+```yaml
+service: findmy.delete_devices
+data:
+  filter: openhaystack   # all|openhaystack|static|rolling
+```
+
+### Template combining across multiple tags
+
+```yaml
+template:
+  - sensor:
+      - name: FindMy fleet moving
+        state: >-
+          {{ expand(state_attr('group.findmy_tags', 'entity_id'))
+             | selectattr('state', 'ne', 'not_home')
+             | list | count }}
+```
+
 ## Common tasks
 
 ### The tag doesn't appear after import
