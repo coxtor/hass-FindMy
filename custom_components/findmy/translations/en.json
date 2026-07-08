@@ -94,5 +94,21 @@
         "openhaystack": "OpenHaystack rotating tag (devices.json)"
       }
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Position smoothing",
+        "description": "Tune how the *_smoothed sensor entities damp the wandering that stationary tags exhibit. Change and save; sensors pick up the new values on the next state emit. See the README for algorithm details.",
+        "data": {
+          "smoothing_window": "Window (how many recent reports to consider)",
+          "smoothing_radius_m": "Outlier radius (reports farther from the centroid are dropped)",
+          "smoothing_max_age_hours": "Max age (older reports are excluded so movement isn't lagged forever)"
+        }
+      }
+    },
+    "abort": {
+      "no_options": "This entry has no configurable options."
+    }
   }
 }

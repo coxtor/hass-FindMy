@@ -201,7 +201,7 @@ class FindMySmoothedLatitudeSensor(_FindMyBaseSensor):
 
     @override
     def _compute_value(self) -> float | None:
-        pos = self._coordinator.get_smoothed_position(self._device)
+        pos = self._coordinator.get_smoothed_position(self._device, self._entry_id)
         return pos[0] if pos else None
 
     @property
@@ -224,7 +224,7 @@ class FindMySmoothedLongitudeSensor(_FindMyBaseSensor):
 
     @override
     def _compute_value(self) -> float | None:
-        pos = self._coordinator.get_smoothed_position(self._device)
+        pos = self._coordinator.get_smoothed_position(self._device, self._entry_id)
         return pos[1] if pos else None
 
     @property
@@ -246,7 +246,7 @@ class FindMySmoothedPositionSensor(_FindMyBaseSensor):
 
     @override
     def _compute_value(self) -> str | None:
-        pos = self._coordinator.get_smoothed_position(self._device)
+        pos = self._coordinator.get_smoothed_position(self._device, self._entry_id)
         if pos is None:
             return None
         return f"{pos[0]:.6f},{pos[1]:.6f}"

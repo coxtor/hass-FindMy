@@ -152,13 +152,25 @@ class FindMyCoordinator(DataUpdateCoordinator[FindMyLocationData]):
     def get_smoothed_position(
         self,
         device: FindMyDevice,
-        *,
-        window: int = SMOOTH_WINDOW_DEFAULT,
-        radius_m: float = SMOOTH_RADIUS_M_DEFAULT,
-        max_age_hours: float = SMOOTH_MAX_AGE_HOURS_DEFAULT,
+        entry_id: str | None = None,
     ) -> tuple[float, float] | None:
         """Trimmed-centroid position for the given device based on its history
-        buffer. Returns None when nothing has ever been polled for the device."""
+        buffer. Reads window/radius/max_age from the config entry's options
+        (set via the options-flow sliders); falls back to hardcoded defaults
+        when the entry has no options set yet or when `entry_id` is None."""
+        window = SMOOTH_WINDOW_DEFAULT
+        radius_m = SMOOTH_RADIUS_M_DEFAULT
+        max_age_hours = SMOOTH_MAX_AGE_HOURS_DEFAULT
+
+        if entry_id is not None:
+            entry = self.hass.config_entries.async_get_entry(entry_id)
+            if entry is not None and entry.options:
+                window = int(entry.options.get("smoothing_window", window))
+                radius_m = float(entry.options.get("smoothing_radius_m", radius_m))
+                max_age_hours = float(
+                    entry.options.get("smoothing_max_age_hours", max_age_hours),
+                )
+
         return smoothed_position(
             list(self._history.get(device, ())),
             window=window,

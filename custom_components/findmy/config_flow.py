@@ -15,6 +15,9 @@ from homeassistant.data_entry_flow import section
 from homeassistant.helpers.selector import (
     FileSelector,  # pyright: ignore[reportUnknownVariableType]
     FileSelectorConfig,
+    NumberSelector,  # pyright: ignore[reportUnknownVariableType]
+    NumberSelectorConfig,
+    NumberSelectorMode,
     SelectOptionDict,
     SelectSelector,  # pyright: ignore[reportUnknownVariableType]
     SelectSelectorConfig,
@@ -38,6 +41,13 @@ from findmy import (
     UnhandledProtocolError,
 )
 
+from homeassistant.core import callback
+
+from ._entity import (
+    SMOOTH_MAX_AGE_HOURS_DEFAULT,
+    SMOOTH_RADIUS_M_DEFAULT,
+    SMOOTH_WINDOW_DEFAULT,
+)
 from .const import DOMAIN
 from .openhaystack import OpenHaystackAccessory, OpenHaystackAccessoryMapping
 
@@ -189,6 +199,13 @@ class InitialSetupConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         self._error: Exception | None = None
         self._2fa_methods: list[AsyncSecondFactorMethod] = []
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> config_entries.OptionsFlow:
+        return DeviceOptionsFlow(config_entry)
 
     @override
     async def async_step_user(
@@ -727,3 +744,75 @@ def _get_account_from_file(
         except (ValueError, KeyError, TypeError):
             _LOGGER.exception("Account JSON is not a valid findmy.py state export")
             return None
+
+
+# --- Options flow (per-device tunable smoothing) ---------------------------
+
+# Tunable ranges - keep them permissive but not absurd
+_OPT_WINDOW_MIN, _OPT_WINDOW_MAX = 3, 100
+_OPT_RADIUS_MIN, _OPT_RADIUS_MAX = 20, 5000
+_OPT_MAX_AGE_MIN, _OPT_MAX_AGE_MAX = 0.5, 72.0
+
+
+@final
+class DeviceOptionsFlow(config_entries.OptionsFlow):
+    """Per-device sliders for the smoothed-position sensors."""
+
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        self._entry: config_entries.ConfigEntry = config_entry
+
+    async def async_step_init(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> config_entries.ConfigFlowResult:
+        entry_type = self._entry.data.get("type", "")
+        if not str(entry_type).startswith("device_"):
+            return self.async_abort(reason="no_options")
+
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        current = self._entry.options or {}
+
+        schema = vol.Schema(
+            {
+                vol.Required(
+                    "smoothing_window",
+                    default=current.get("smoothing_window", SMOOTH_WINDOW_DEFAULT),
+                ): NumberSelector(
+                    NumberSelectorConfig(
+                        min=_OPT_WINDOW_MIN,
+                        max=_OPT_WINDOW_MAX,
+                        step=1,
+                        mode=NumberSelectorMode.SLIDER,
+                        unit_of_measurement="reports",
+                    ),
+                ),
+                vol.Required(
+                    "smoothing_radius_m",
+                    default=current.get("smoothing_radius_m", SMOOTH_RADIUS_M_DEFAULT),
+                ): NumberSelector(
+                    NumberSelectorConfig(
+                        min=_OPT_RADIUS_MIN,
+                        max=_OPT_RADIUS_MAX,
+                        step=10,
+                        mode=NumberSelectorMode.SLIDER,
+                        unit_of_measurement="m",
+                    ),
+                ),
+                vol.Required(
+                    "smoothing_max_age_hours",
+                    default=current.get("smoothing_max_age_hours", SMOOTH_MAX_AGE_HOURS_DEFAULT),
+                ): NumberSelector(
+                    NumberSelectorConfig(
+                        min=_OPT_MAX_AGE_MIN,
+                        max=_OPT_MAX_AGE_MAX,
+                        step=0.5,
+                        mode=NumberSelectorMode.SLIDER,
+                        unit_of_measurement="h",
+                    ),
+                ),
+            },
+        )
+
+        return self.async_show_form(step_id="init", data_schema=schema)

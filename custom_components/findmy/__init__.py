@@ -36,11 +36,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry[EntryData]) 
     if isinstance(item, FindMyDevice):
         # only initialize device tracker entities for actual devices
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+        # When the user adjusts a smoothing slider we nudge the coordinator
+        # so all sensor entities re-emit their state with the new numbers.
+        entry.async_on_unload(entry.add_update_listener(_options_updated))
 
     await storage.coordinator.reload()
     await storage.coordinator.async_refresh()
 
     return True
+
+
+async def _options_updated(hass: HomeAssistant, _entry: ConfigEntry[EntryData]) -> None:
+    """Called when a config entry's options change (options-flow save).
+
+    Doesn't hit Apple - we just re-emit cached data so smoothed sensors pick
+    up the new window/radius/max_age settings immediately."""
+    storage = RuntimeStorage.get(hass)
+    storage.coordinator.async_update_listeners()
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry[EntryData]) -> bool:
