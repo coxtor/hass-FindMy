@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.5.0 – 2026-07-08
+
+### Added
+
+- **Smoothed device_tracker** – a second `device_tracker` entity per tag
+  named `device_tracker.findmy_<tag>_smoothed` that surfaces the
+  trimmed-centroid coordinates instead of the raw latest.  HA's built-in
+  Map card, the mobile Companion app map and zone automations all consume
+  it directly; no template YAML or custom-card gymnastics required.
+- Both trackers group under the same HA device so you can enable / disable
+  them independently from Settings → Devices → tag.
+
+### Notes
+
+- Disabled by default; enable via the device page.
+- Uses the same options-flow sliders as the smoothed sensor entities; a
+  slider change immediately updates both trackers on next poll.
+
 ## v0.4.0 – 2026-07-08
 
 ### Added
