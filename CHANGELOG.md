@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.6.0 – 2026-07-08
+
+### Changed
+
+- **Smoothing: adaptive motion detection** – before computing the historical
+  median centroid, the algorithm now inspects the last 3 reports. If they
+  agree with each other (< radius_m apart) but sit more than 2×radius_m
+  from the older reports' median, the tag has actually moved – and the
+  smoother returns the recent cluster median directly instead of dragging
+  the old location around for hours.
+- Single outliers still get discarded normally. Multiple inconsistent
+  recent reports fall through to the standard trimmed-centroid path.
+
+### Rationale
+
+Previously a moved tag would take ~half the window (2–3 hours at default
+settings) to catch up to its new location because the older reports still
+dominated the median. Motion detection means real movement is reflected on
+the map within one poll interval while the anti-outlier behaviour for
+stationary tags stays intact.
+
 ## v0.5.0 – 2026-07-08
 
 ### Added

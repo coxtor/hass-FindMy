@@ -195,6 +195,39 @@ def smoothed_position(
 
     window_reports = fresh[-window:]
 
+    # --- Motion detection ---------------------------------------------------
+    # Before we compute the historical median, look at the very freshest
+    # reports.  If the last N_RECENT of them all agree with each other but
+    # sit meaningfully far from the older ones, the tag has actually moved
+    # - and clinging to the old median would lag the smoothed sensor by
+    # hours.  In that case we return the recent-cluster median directly.
+    #
+    # "Meaningfully far" == more than 2 * radius_m from the older median.
+    # That's roughly "beyond the normal iPhone-GPS noise the smoother is
+    # designed to absorb".
+    N_RECENT = 3
+    if len(window_reports) >= N_RECENT + 3:
+        recent = window_reports[-N_RECENT:]
+        older = window_reports[:-N_RECENT]
+
+        r_lat = _median([r.latitude for r in recent])
+        r_lon = _median([r.longitude for r in recent])
+        o_lat = _median([r.latitude for r in older])
+        o_lon = _median([r.longitude for r in older])
+
+        cluster_shift = haversine_m(r_lat, r_lon, o_lat, o_lon)
+        if cluster_shift > 2 * radius_m:
+            # Are the recent reports agreeing with each other?  If yes -> motion.
+            recent_spread = max(
+                haversine_m(r_lat, r_lon, r.latitude, r.longitude)
+                for r in recent
+            )
+            if recent_spread <= radius_m:
+                return (r_lat, r_lon)
+            # Otherwise the recent points are all over the map; fall through
+            # to the normal trimmed-centroid logic (they'll be treated as
+            # outliers around the old centroid).
+
     m_lat = _median([r.latitude for r in window_reports])
     m_lon = _median([r.longitude for r in window_reports])
 
