@@ -123,17 +123,23 @@ def status_counter(status: int | None) -> int | None:
     return status & 0b00111111
 
 
-# Bit 5 of the status byte: motion_recent flag written by the
-# coxtor/openhaystack-tag-firmware. Stock firmware leaves this bit at
-# zero, so the entity is disabled by default and only useful on tags
-# running the extended firmware.
-_STATUS_MOTION_RECENT_MASK = 0b00100000
+# Bits 5-4 of the status byte are written by the
+# coxtor/openhaystack-tag-firmware. Stock firmware leaves them at zero,
+# so entities that read them are disabled by default.
+_STATUS_MOTION_RECENT_MASK = 0b00100000   # bit 5
+_STATUS_ARMED_MASK         = 0b00010000   # bit 4
 
 
 def motion_recent(status: int | None) -> bool | None:
     if status is None or not isinstance(status, int):
         return None
     return bool(status & _STATUS_MOTION_RECENT_MASK)
+
+
+def armed(status: int | None) -> bool | None:
+    if status is None or not isinstance(status, int):
+        return None
+    return bool(status & _STATUS_ARMED_MASK)
 
 
 # --- Position smoothing ---------------------------------------------------

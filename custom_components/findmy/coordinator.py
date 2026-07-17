@@ -93,7 +93,18 @@ class FindMyCoordinator(DataUpdateCoordinator[FindMyLocationData]):
             return {}
         _LOGGER.debug("Using lookup account: %s", account)
 
-        contexts: list[FindMyDevice] = list(self.async_contexts())
+        # Deduplicate: async_contexts() returns the context of *every*
+        # subscribed entity. Each device typically has many entities
+        # (device_tracker + battery + several sensors), so without a
+        # dedupe step we fetch the same tag N times per poll — which
+        # burns rate limit on Apple's endpoint and causes the
+        # "Timeout fetching Location Reports data" that all findmy
+        # entities go unavailable from. Dedupe with an id() keyed dict
+        # to avoid relying on hashability of the FindMyDevice union.
+        contexts_seen: dict[int, FindMyDevice] = {}
+        for ctx in self.async_contexts():
+            contexts_seen.setdefault(id(ctx), ctx)
+        contexts: list[FindMyDevice] = list(contexts_seen.values())
 
         # Flatten OpenHaystackAccessory wrappers into their constituent KeyPairs
         # so the FindMy library's fetch_location gets a flat list.  We remember
