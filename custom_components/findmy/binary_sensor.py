@@ -17,9 +17,11 @@ from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from ._entity import (
+    armed,
     battery_bits,
     build_device_info,
     device_unique_id,
+    freefall_recent,
     latest_report,
     motion_recent,
 )
@@ -52,6 +54,8 @@ async def async_setup_entry(
         (
             FindMyBatteryLowBinarySensor(storage.coordinator, item, entry.entry_id),
             FindMyMotionRecentBinarySensor(storage.coordinator, item, entry.entry_id),
+            FindMyArmedBinarySensor(storage.coordinator, item, entry.entry_id),
+            FindMyFreefallRecentBinarySensor(storage.coordinator, item, entry.entry_id),
         ),
     )
 
@@ -166,6 +170,114 @@ class FindMyMotionRecentBinarySensor(  # pyright: ignore[reportUninitializedInst
     def _compute(self) -> bool | None:
         report = latest_report(self._coordinator, self._device)
         return motion_recent(report.status if report else None)
+
+    @property
+    @override
+    def is_on(self) -> bool | None:  # pyright: ignore[reportIncompatibleVariableOverride]
+        val = self._cached
+        if val is None:
+            val = self._compute()
+        return val
+
+
+@final
+class FindMyArmedBinarySensor(  # pyright: ignore[reportUninitializedInstanceVariable]
+    CoordinatorEntity[FindMyCoordinator],
+    BinarySensorEntity,
+):
+    """Armed / anti-theft flag from the coxtor tag firmware (bit 4)."""
+
+    _attr_has_entity_name = True
+    _attr_should_poll = False
+    _attr_name = "Armed"
+    _attr_device_class = BinarySensorDeviceClass.SAFETY
+    _attr_entity_registry_enabled_default = False
+
+    def __init__(
+        self,
+        coordinator: FindMyCoordinator,
+        device: FindMyDevice,
+        entry_id: str,
+    ) -> None:
+        super().__init__(coordinator, context=device)
+        self._coordinator: FindMyCoordinator = coordinator
+        self._device: FindMyDevice = device
+        self._entry_id: str = entry_id
+        self._cached: bool | None = None
+
+    @property
+    @override
+    def unique_id(self) -> str:  # pyright: ignore[reportIncompatibleVariableOverride]
+        return f"{device_unique_id(self._device)}_armed"
+
+    @property
+    @override
+    def device_info(self) -> DeviceInfo:  # pyright: ignore[reportIncompatibleVariableOverride]
+        return build_device_info(self._device)
+
+    @callback
+    @override
+    def _handle_coordinator_update(self) -> None:
+        self._cached = self._compute()
+        self.async_write_ha_state()
+
+    def _compute(self) -> bool | None:
+        report = latest_report(self._coordinator, self._device)
+        return armed(report.status if report else None)
+
+    @property
+    @override
+    def is_on(self) -> bool | None:  # pyright: ignore[reportIncompatibleVariableOverride]
+        val = self._cached
+        if val is None:
+            val = self._compute()
+        return val
+
+
+@final
+class FindMyFreefallRecentBinarySensor(  # pyright: ignore[reportUninitializedInstanceVariable]
+    CoordinatorEntity[FindMyCoordinator],
+    BinarySensorEntity,
+):
+    """Free-fall-recent flag from the coxtor tag firmware (bit 3)."""
+
+    _attr_has_entity_name = True
+    _attr_should_poll = False
+    _attr_name = "Free-fall recent"
+    _attr_device_class = BinarySensorDeviceClass.PROBLEM
+    _attr_entity_registry_enabled_default = False
+
+    def __init__(
+        self,
+        coordinator: FindMyCoordinator,
+        device: FindMyDevice,
+        entry_id: str,
+    ) -> None:
+        super().__init__(coordinator, context=device)
+        self._coordinator: FindMyCoordinator = coordinator
+        self._device: FindMyDevice = device
+        self._entry_id: str = entry_id
+        self._cached: bool | None = None
+
+    @property
+    @override
+    def unique_id(self) -> str:  # pyright: ignore[reportIncompatibleVariableOverride]
+        return f"{device_unique_id(self._device)}_freefall_recent"
+
+    @property
+    @override
+    def device_info(self) -> DeviceInfo:  # pyright: ignore[reportIncompatibleVariableOverride]
+        return build_device_info(self._device)
+
+    @callback
+    @override
+    def _handle_coordinator_update(self) -> None:
+        self._cached = self._compute()
+        self.async_write_ha_state()
+
+    def _compute(self) -> bool | None:
+        report = latest_report(self._coordinator, self._device)
+        return freefall_recent(report.status if report else None)
 
     @property
     @override

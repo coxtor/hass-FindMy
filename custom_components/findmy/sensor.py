@@ -15,6 +15,7 @@ from homeassistant.components.sensor import (
     SensorEntity,
     SensorStateClass,
 )
+from homeassistant.const import UnitOfTemperature
 from homeassistant.core import callback
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -27,6 +28,7 @@ from ._entity import (
     device_unique_id,
     latest_report,
     status_counter,
+    temperature_celsius_approx,
 )
 from .coordinator import FindMyCoordinator, FindMyDevice
 from .storage import RuntimeStorage
@@ -65,6 +67,7 @@ async def async_setup_entry(
             FindMyBatteryPercentSensor(storage.coordinator, item, entry.entry_id),
             FindMyBatteryVoltageSensor(storage.coordinator, item, entry.entry_id),
             FindMyStatusCounterSensor(storage.coordinator, item, entry.entry_id),
+            FindMyTemperatureSensor(storage.coordinator, item, entry.entry_id),
         ),
     )
 
@@ -337,6 +340,36 @@ class FindMyStatusCounterSensor(_FindMyBaseSensor):
     def _compute_value(self) -> int | None:
         report = latest_report(self._coordinator, self._device)
         return status_counter(report.status if report else None)
+
+    @property
+    @override
+    def native_value(self) -> int | None:  # pyright: ignore[reportIncompatibleVariableOverride]
+        val = self._cached_value
+        if val is None:
+            val = self._compute_value()
+        return val  # type: ignore[return-value]
+
+
+@final
+class FindMyTemperatureSensor(_FindMyBaseSensor):
+    """Coarse die-temperature bucket from the coxtor tag firmware.
+
+    Bits 2-0 of the status byte encode 8 buckets of ~10 °C. Stock
+    firmware leaves them at 0 which maps to -15 °C — misleading — hence
+    disabled by default.
+    """
+
+    _attr_name = "Temperature"
+    _attr_device_class = SensorDeviceClass.TEMPERATURE
+    _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_entity_registry_enabled_default = False
+    _suffix = "temperature"
+
+    @override
+    def _compute_value(self) -> int | None:
+        report = latest_report(self._coordinator, self._device)
+        return temperature_celsius_approx(report.status if report else None)
 
     @property
     @override
