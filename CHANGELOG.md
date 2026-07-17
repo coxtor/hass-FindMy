@@ -1,5 +1,33 @@
 # Changelog
 
+## v0.7.1 – 2026-07-17
+
+### Added
+
+- **`binary_sensor.<tag>_armed`** — bit 4 of the OpenHaystack status
+  byte, written by the
+  [coxtor tag firmware](https://github.com/coxtor/openhaystack-tag-firmware)
+  when the user activates the anti-theft mode on the tag. SAFETY device
+  class, disabled by default (dead on stock firmware).
+
+### Fixed
+
+- **Coordinator was calling Apple N times per poll for a single tag**,
+  where N = number of entities subscribed to that tag. `async_contexts()`
+  returns the context of every subscribed entity, so a device with, say,
+  8 entities (`device_tracker` + battery + lat/lon + binary sensors)
+  triggered 8 parallel `fetch_location` calls for the same tag every
+  poll cycle. Apple's endpoint rate-limits this and the coordinator
+  timed out, taking every findmy entity offline.
+- Deduplicate contexts with an id()-keyed dict before flattening for
+  the FindMy library, so we ask Apple exactly once per unique device
+  per poll regardless of how many HA entities are attached. This is
+  what was causing the "add one more entity → whole integration goes
+  unavailable" pattern seen through 0.7.0's rocky rollout.
+- Users on 0.6.0 also benefit — fewer Apple calls per poll means less
+  chance of rate-limit-induced timeouts even without the custom
+  firmware entities.
+
 ## v0.7.0 – 2026-07-17
 
 ### Added
