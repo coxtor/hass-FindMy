@@ -1,5 +1,51 @@
 # Changelog
 
+## v0.7.4 – 2026-07-17
+
+### Added
+
+- **Home Assistant events on rising-edge transitions** of the custom
+  firmware binary sensors, so automations can trigger on physical
+  events without watching entity state:
+  - `findmy_motion_detected` — fired when `motion_recent` goes False → True
+  - `findmy_armed` — fired when `armed` goes False → True
+  - `findmy_freefall_detected` — fired when `freefall_recent` goes False → True
+- Each event payload carries `device_id` (matches the HA device
+  unique_id) and `device_name` so automations can filter by tag.
+
+### Example
+
+```yaml
+alias: Alarm when armed backpack is moved
+trigger:
+  - platform: event
+    event_type: findmy_motion_detected
+condition:
+  - "{{ is_state('binary_sensor.backpack_armed', 'on') }}"
+  - "{{ trigger.event.data.device_name == 'Backpack' }}"
+action:
+  - service: notify.mobile_app
+    data:
+      title: Backpack alarm
+      message: Motion detected while armed!
+```
+
+### Notes
+
+- Stock-firmware users see no events because the underlying bits stay
+  at 0 and the rising-edge transition never happens.
+- Fired from the coordinator update — no extra polling.
+
+## v0.7.3 – 2026-07-17
+
+### Added
+
+- **`sensor.<tag>_temperature`** — reads bits 2-0 of the OpenHaystack
+  status byte as an 8-bucket coarse die-temperature reading (~10 °C per
+  bucket) from the nRF chip on the coxtor tag firmware. TEMPERATURE
+  device class, °C, disabled by default (stock firmware transmits 0
+  which maps to -15 °C and would be misleading).
+
 ## v0.7.2 – 2026-07-17
 
 ### Added

@@ -25,8 +25,16 @@ from ._entity import (
     latest_report,
     motion_recent,
 )
+from .const import DOMAIN
 from .coordinator import FindMyCoordinator, FindMyDevice
 from .storage import RuntimeStorage
+
+# Events fired on the rising edge (None/False → True) of the custom
+# firmware binary sensors, so automations can trigger on physical events
+# without polling entity state.
+EVENT_MOTION_DETECTED   = f"{DOMAIN}_motion_detected"
+EVENT_ARMED             = f"{DOMAIN}_armed"
+EVENT_FREEFALL_DETECTED = f"{DOMAIN}_freefall_detected"
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -164,7 +172,17 @@ class FindMyMotionRecentBinarySensor(  # pyright: ignore[reportUninitializedInst
     @callback
     @override
     def _handle_coordinator_update(self) -> None:
-        self._cached = self._compute()
+        prev = self._cached
+        curr = self._compute()
+        if curr and not prev and self.hass is not None:
+            self.hass.bus.async_fire(
+                EVENT_MOTION_DETECTED,
+                {
+                    "device_id": device_unique_id(self._device),
+                    "device_name": self._device.name or "Unknown",
+                },
+            )
+        self._cached = curr
         self.async_write_ha_state()
 
     def _compute(self) -> bool | None:
@@ -218,7 +236,17 @@ class FindMyArmedBinarySensor(  # pyright: ignore[reportUninitializedInstanceVar
     @callback
     @override
     def _handle_coordinator_update(self) -> None:
-        self._cached = self._compute()
+        prev = self._cached
+        curr = self._compute()
+        if curr and not prev and self.hass is not None:
+            self.hass.bus.async_fire(
+                EVENT_ARMED,
+                {
+                    "device_id": device_unique_id(self._device),
+                    "device_name": self._device.name or "Unknown",
+                },
+            )
+        self._cached = curr
         self.async_write_ha_state()
 
     def _compute(self) -> bool | None:
@@ -272,7 +300,17 @@ class FindMyFreefallRecentBinarySensor(  # pyright: ignore[reportUninitializedIn
     @callback
     @override
     def _handle_coordinator_update(self) -> None:
-        self._cached = self._compute()
+        prev = self._cached
+        curr = self._compute()
+        if curr and not prev and self.hass is not None:
+            self.hass.bus.async_fire(
+                EVENT_FREEFALL_DETECTED,
+                {
+                    "device_id": device_unique_id(self._device),
+                    "device_name": self._device.name or "Unknown",
+                },
+            )
+        self._cached = curr
         self.async_write_ha_state()
 
     def _compute(self) -> bool | None:
