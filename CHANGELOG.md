@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.7.2 – 2026-07-17
+
+### Added
+
+- **`binary_sensor.<tag>_freefall_recent`** — reads bit 3 of the
+  OpenHaystack status byte, which the coxtor tag firmware sets for
+  ~30 min after the accelerometer registers a free-fall event.
+  PROBLEM device class, disabled by default.
+
 ## v0.7.1 – 2026-07-17
 
 ### Added
