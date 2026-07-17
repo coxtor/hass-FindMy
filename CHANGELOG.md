@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.7.0 – 2026-07-17
+
+### Added
+
+- **`binary_sensor.<tag>_motion_recent`** — reads bit 5 of the
+  OpenHaystack status byte, which the
+  [coxtor/openhaystack-tag-firmware](https://github.com/coxtor/openhaystack-tag-firmware)
+  sets for ~5 min after the tag's accelerometer fires. Disabled by
+  default; stock firmware leaves this bit at 0 so the entity would
+  otherwise be dead weight.
+  MOTION device class, so it plays nicely with HA's presence /
+  automation UI.
+
+### Notes
+
+- Deliberately ships as a single new entity to avoid the "add several
+  entities → everything unavailable" issue seen in the pulled 0.7.0
+  attempts earlier today. `armed`, `freefall_recent` and `temperature`
+  will follow as separate incremental releases once each one is
+  individually verified stable in a real HA install.
+
 ## v0.6.0 – 2026-07-08
 
 ### Changed
