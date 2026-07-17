@@ -123,11 +123,12 @@ def status_counter(status: int | None) -> int | None:
     return status & 0b00111111
 
 
-# Bits 5-4 of the status byte are written by the
+# Bits 5-3 of the status byte are written by the
 # coxtor/openhaystack-tag-firmware. Stock firmware leaves them at zero,
 # so entities that read them are disabled by default.
-_STATUS_MOTION_RECENT_MASK = 0b00100000   # bit 5
-_STATUS_ARMED_MASK         = 0b00010000   # bit 4
+_STATUS_MOTION_RECENT_MASK   = 0b00100000   # bit 5
+_STATUS_ARMED_MASK           = 0b00010000   # bit 4
+_STATUS_FREEFALL_RECENT_MASK = 0b00001000   # bit 3
 
 
 def motion_recent(status: int | None) -> bool | None:
@@ -140,6 +141,12 @@ def armed(status: int | None) -> bool | None:
     if status is None or not isinstance(status, int):
         return None
     return bool(status & _STATUS_ARMED_MASK)
+
+
+def freefall_recent(status: int | None) -> bool | None:
+    if status is None or not isinstance(status, int):
+        return None
+    return bool(status & _STATUS_FREEFALL_RECENT_MASK)
 
 
 # --- Position smoothing ---------------------------------------------------
