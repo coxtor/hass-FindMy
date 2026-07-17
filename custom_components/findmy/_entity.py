@@ -123,12 +123,25 @@ def status_counter(status: int | None) -> int | None:
     return status & 0b00111111
 
 
-# Bits 5-3 of the status byte are written by the
+# Bits 5-0 of the status byte are written by the
 # coxtor/openhaystack-tag-firmware. Stock firmware leaves them at zero,
 # so entities that read them are disabled by default.
 _STATUS_MOTION_RECENT_MASK   = 0b00100000   # bit 5
 _STATUS_ARMED_MASK           = 0b00010000   # bit 4
 _STATUS_FREEFALL_RECENT_MASK = 0b00001000   # bit 3
+_STATUS_TEMP_MASK            = 0b00000111   # bits 2-0 coarse temp bucket
+
+# Bucket → midpoint °C for the 8-step die-temp reading.
+_TEMP_BUCKET_CELSIUS: dict[int, int] = {
+    0: -15,
+    1: -5,
+    2: 5,
+    3: 15,
+    4: 25,  # room
+    5: 35,
+    6: 45,
+    7: 55,
+}
 
 
 def motion_recent(status: int | None) -> bool | None:
@@ -147,6 +160,12 @@ def freefall_recent(status: int | None) -> bool | None:
     if status is None or not isinstance(status, int):
         return None
     return bool(status & _STATUS_FREEFALL_RECENT_MASK)
+
+
+def temperature_celsius_approx(status: int | None) -> int | None:
+    if status is None or not isinstance(status, int):
+        return None
+    return _TEMP_BUCKET_CELSIUS.get(status & _STATUS_TEMP_MASK)
 
 
 # --- Position smoothing ---------------------------------------------------
