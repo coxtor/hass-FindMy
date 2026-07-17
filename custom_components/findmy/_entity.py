@@ -123,6 +123,19 @@ def status_counter(status: int | None) -> int | None:
     return status & 0b00111111
 
 
+# Bit 5 of the status byte: motion_recent flag written by the
+# coxtor/openhaystack-tag-firmware. Stock firmware leaves this bit at
+# zero, so the entity is disabled by default and only useful on tags
+# running the extended firmware.
+_STATUS_MOTION_RECENT_MASK = 0b00100000
+
+
+def motion_recent(status: int | None) -> bool | None:
+    if status is None or not isinstance(status, int):
+        return None
+    return bool(status & _STATUS_MOTION_RECENT_MASK)
+
+
 # --- Position smoothing ---------------------------------------------------
 # Location reports for a stationary tag "wander" across a few blocks because
 # every iPhone that hears the tag uploads its OWN GPS fix as the tag's
